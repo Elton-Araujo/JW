@@ -1,6 +1,6 @@
 from flask import Flask, jsonify
 import requests
-from bs4 import BeautifulSoup, NavigableString
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
@@ -13,50 +13,37 @@ def get_reuniao(ano, semana):
 
     soup = BeautifulSoup(resp.content, 'html.parser')
 
-    # Semana e Capítulo
+    # Semana (h1) e Capítulo (h2 logo após)
     semana_text = soup.find('h1').get_text(strip=True) if soup.find('h1') else ""
     capitulo_tag = soup.find('h2')
     capitulo = capitulo_tag.get_text(strip=True) if capitulo_tag else ""
 
-    # Função para pegar uma seção pelo título (ex: "TESOUROS DA PALAVRA DE DEUS")
-    # e retornar lista dos títulos dos subtópicos (<h3>) nessa seção
+    # Função para extrair tópicos de cada seção, baseando-se nos h3 numerados após h2/h3 com título
     def extrair_secao(titulo_secao):
-        secao = soup.find('h2', string=lambda text: text and titulo_secao.lower() in text.lower())
+        secao = soup.find(lambda tag: tag.name in ['h2', 'h3'] and titulo_secao.lower() in tag.get_text(strip=True).lower())
         if not secao:
             return []
 
         itens = []
-        # Percorre os irmãos após esse h2, até encontrar outro h2 (nova seção) ou fim
-        for sib in secao.find_next_siblings():
-            if sib.name == 'h2':
+        for sib in secao.find_all_next():
+            if sib.name in ['h2'] and titulo_secao.lower() not in sib.get_text(strip=True).lower():
                 break
-            if sib.name == 'h3':
-                texto = sib.get_text(strip=True)
-                if texto:
-                    itens.append(texto)
+            if sib.name == 'h3' and sib.get_text(strip=True)[0].isdigit():
+                itens.append(sib.get_text(strip=True))
         return itens
 
+    # Extraindo listas das seções
     tesouros = extrair_secao("Tesouros da Palavra de Deus")
     instrutores = extrair_secao("Sejamos Melhores Instrutores")
     vida_crista = extrair_secao("Nossa Vida Cristã")
 
-    # Capturar músicas: todos os h3 que têm "Cântico" no texto
-    canticos = [h3.get_text(strip=True) for h3 in soup.find_all('h3') if "Cântico" in h3.get_text()]
+    # Músicas — h3 com "Cântico"
+    canticos = [h3.get_text(strip=True).split('Cântico')[-1].strip() for h3 in soup.find_all('h3') if "Cântico" in h3.get_text()]
+    musica_inicial = f"Cântico {canticos[0]}" if canticos else ""
+    musica_final = f"Cântico {canticos[-1]}" if len(canticos) > 1 else musica_inicial
 
-    musica_inicial = canticos[0] if canticos else ""
-    musica_final = canticos[-1] if len(canticos) > 1 else musica_inicial
-
-    # Capturar introdução: parágrafos logo após o h1 e h2, antes da primeira seção (h2)
+    # Introdução — opcional (não visível claramente na estrutura atual)
     introducao = ""
-    h1 = soup.find('h1')
-    if h1:
-        next_node = h1.find_next_sibling()
-        textos_intro = []
-        while next_node and next_node.name != 'h2':
-            if next_node.name == 'p':
-                textos_intro.append(next_node.get_text(strip=True))
-            next_node = next_node.find_next_sibling()
-        introducao = " ".join(textos_intro)
 
     return jsonify({
         "semana": semana_text,
