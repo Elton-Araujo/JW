@@ -16,62 +16,56 @@ def get_reuniao(ano, semana):
     # Semana e Capítulo
     semana_text = soup.find('h1').get_text(strip=True) if soup.find('h1') else ""
     capitulo_tag = soup.find('h2')
-    capitulo = capitulo_tag.get_text(strip=True) if capitulo_tag else ""
+    capitulo = capitulo_tag.get_text(strip=True).replace(" |", "") if capitulo_tag else ""
 
-    # Função para extrair seção com títulos e tempos
-    def extrair_secao(titulo_secao, incluir_musica=False):
-        secao_titulo = soup.find(lambda tag: tag.name in ['h2', 'h3'] and titulo_secao.lower() in tag.get_text(strip=True).lower())
-        if not secao_titulo:
-            return "" if incluir_musica else []
+    # Função auxiliar para buscar tempo
+    def buscar_tempo(elem):
+        next_div = elem.find_next_sibling("div")
+        if next_div:
+            tempo_p = next_div.find("p")
+            if tempo_p and "(" in tempo_p.text:
+                return tempo_p.text.strip()
+        return ""
 
-        itens = []
+    # Extrair itens de seção
+    def extrair_secao(nome, incluir_musica=False):
+        inicio = soup.find(lambda tag: tag.name == "h2" and nome.lower() in tag.text.lower())
+        if not inicio:
+            return ("", []) if incluir_musica else []
+        
+        elementos = []
         musica = ""
 
-        next_el = secao_titulo.find_next_sibling()
-        while next_el:
-            if next_el.name == 'h2':
-                break
-            if next_el.name == 'h3':
-                texto = next_el.get_text(strip=True)
-                if "Cântico" in texto and incluir_musica:
-                    musica = texto
-                elif texto[0].isdigit():
-                    # tenta encontrar o tempo
-                    tempo_tag = next_el.find_next_sibling()
-                    tempo = ""
-                    if tempo_tag and tempo_tag.name == "div":
-                        p_tag = tempo_tag.find("p")
-                        if p_tag:
-                            tempo = p_tag.get_text(strip=True)
-                    if tempo:
-                        texto = f"{texto} ({tempo})"
-                    itens.append(texto)
-            next_el = next_el.find_next_sibling()
+        for tag in inicio.find_all_next():
+            if tag.name == "h2" and tag.text.strip() != inicio.text.strip():
+                break  # fim da seção
 
-        return (musica, itens) if incluir_musica else itens
+            if incluir_musica and tag.name == "h3" and "Cântico" in tag.text:
+                musica = tag.text.strip().split("e")[0].strip()
+            
+            if tag.name == "h3" and tag.text.strip()[0].isdigit():
+                tempo = buscar_tempo(tag)
+                texto = f"{tag.text.strip()} ({tempo})" if tempo else tag.text.strip()
+                elementos.append(texto)
+
+        return (musica, elementos) if incluir_musica else elementos
+
+    # Cânticos
+    canticos = [h3.get_text(strip=True).split("e")[0].strip()
+                for h3 in soup.find_all("h3") if "Cântico" in h3.get_text()]
+    musica_inicial = canticos[0] if len(canticos) > 0 else ""
+    musica_final = canticos[-1] if len(canticos) > 1 else ""
 
     # Seções
     tesouros = extrair_secao("Tesouros da Palavra de Deus")
     instrutores = extrair_secao("Sejamos Melhores Instrutores")
     musica_vida_crista, vida_crista = extrair_secao("Nossa Vida Cristã", incluir_musica=True)
 
-    # Limpeza das músicas
-    def extrair_cantico(texto):
-        if "Cântico" not in texto:
-            return ""
-        partes = texto.split("Cântico")
-        numero = partes[-1].split()[0]
-        return f"Cântico {numero}"
-
-    canticos = [extrair_cantico(h3.get_text(strip=True)) for h3 in soup.find_all('h3') if "Cântico" in h3.get_text()]
-    musica_inicial = canticos[0] if len(canticos) > 0 else ""
-    musica_final = canticos[-1] if len(canticos) > 1 else ""
-
     return jsonify({
         "semana": semana_text,
         "capitulo": capitulo,
         "musica_inicial": musica_inicial,
-        "musica_vida_crista": extrair_cantico(musica_vida_crista),
+        "musica_vida_crista": musica_vida_crista,
         "musica_final": musica_final,
         "tesouros": tesouros,
         "instrutores": instrutores,
