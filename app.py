@@ -18,48 +18,52 @@ def get_reuniao(ano, semana):
     capitulo_tag = soup.find('h2')
     capitulo = capitulo_tag.get_text(strip=True).replace(" |", "") if capitulo_tag else ""
 
-    # Função auxiliar para buscar tempo
-    def buscar_tempo(elem):
-        next_div = elem.find_next_sibling("div")
-        if next_div:
-            tempo_p = next_div.find("p")
-            if tempo_p and "(" in tempo_p.text:
-                return tempo_p.text.strip()
-        return ""
+    # Cânticos iniciais e finais
+    musicas = soup.find_all('h3')
+    musica_inicial = ""
+    musica_final = ""
+    musica_vida_crista = ""
 
-    # Extrair itens de seção
-    def extrair_secao(nome, incluir_musica=False):
-        inicio = soup.find(lambda tag: tag.name == "h2" and nome.lower() in tag.text.lower())
-        if not inicio:
-            return ("", []) if incluir_musica else []
-        
-        elementos = []
-        musica = ""
+    for h3 in musicas:
+        texto = h3.get_text(strip=True)
+        if "Comentários iniciais" in texto:
+            musica_inicial = texto.split("e")[0].strip()
+        elif "Comentários finais" in texto:
+            musica_final = texto.split("e")[0].strip()
+        elif "Vida Cristã" in h3.find_previous("h2").text:
+            if "Cântico" in texto:
+                musica_vida_crista = texto.split("e")[0].strip()
 
-        for tag in inicio.find_all_next():
-            if tag.name == "h2" and tag.text.strip() != inicio.text.strip():
+    # Função para buscar itens com tempo
+    def extrair_itens(inicio_tag):
+        itens = []
+        for tag in inicio_tag.find_all_next():
+            if tag.name == "h2":
                 break  # fim da seção
-
-            if incluir_musica and tag.name == "h3" and "Cântico" in tag.text:
-                musica = tag.text.strip().split("e")[0].strip()
-            
             if tag.name == "h3" and tag.text.strip()[0].isdigit():
-                tempo = buscar_tempo(tag)
-                texto = f"{tag.text.strip()} ({tempo})" if tempo else tag.text.strip()
-                elementos.append(texto)
+                titulo = tag.text.strip()
+                tempo = ""
+                next_div = tag.find_next_sibling("div")
+                if next_div:
+                    tempo_p = next_div.find("p")
+                    if tempo_p:
+                        tempo = tempo_p.text.strip()
+                if tempo:
+                    titulo += f" ({tempo})"
+                itens.append(titulo)
+        return itens
 
-        return (musica, elementos) if incluir_musica else elementos
+    # Tesouros da Palavra de Deus
+    secao_tesouros = soup.find("h2", string=lambda text: text and "TESOUROS DA PALAVRA DE DEUS" in text.upper())
+    tesouros = extrair_itens(secao_tesouros) if secao_tesouros else []
 
-    # Cânticos
-    canticos = [h3.get_text(strip=True).split("e")[0].strip()
-                for h3 in soup.find_all("h3") if "Cântico" in h3.get_text()]
-    musica_inicial = canticos[0] if len(canticos) > 0 else ""
-    musica_final = canticos[-1] if len(canticos) > 1 else ""
+    # Sejamos Melhores Instrutores
+    secao_instrutores = soup.find("h2", string=lambda text: text and "FAÇA SEU MELHOR NO MINISTÉRIO" in text.upper())
+    instrutores = extrair_itens(secao_instrutores) if secao_instrutores else []
 
-    # Seções
-    tesouros = extrair_secao("Tesouros da Palavra de Deus")
-    instrutores = extrair_secao("Sejamos Melhores Instrutores")
-    musica_vida_crista, vida_crista = extrair_secao("Nossa Vida Cristã", incluir_musica=True)
+    # Nossa Vida Cristã
+    secao_vida = soup.find("h2", string=lambda text: text and "NOSSA VIDA CRISTÃ" in text.upper())
+    vida_crista = extrair_itens(secao_vida) if secao_vida else []
 
     return jsonify({
         "semana": semana_text,
