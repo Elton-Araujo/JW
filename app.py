@@ -18,21 +18,31 @@ def get_reuniao(ano, semana):
     capitulo_tag = soup.find('h2')
     capitulo = capitulo_tag.get_text(strip=True).replace(" |", "") if capitulo_tag else ""
 
-    # Cânticos iniciais e finais
-    musicas = soup.find_all('h3')
+    # Cânticos
     musica_inicial = ""
     musica_final = ""
     musica_vida_crista = ""
 
-    for h3 in musicas:
-        texto = h3.get_text(strip=True)
-        if "Comentários iniciais" in texto:
-            musica_inicial = texto.split("e")[0].strip()
-        elif "Comentários finais" in texto:
-            musica_final = texto.split("e")[0].strip()
-        elif "Vida Cristã" in h3.find_previous("h2").text:
-            if "Cântico" in texto:
-                musica_vida_crista = texto.split("e")[0].strip()
+    for h3 in soup.find_all('h3'):
+        txt = h3.get_text(strip=True)
+        if "Comentários iniciais" in txt:
+            musica_inicial = txt.split("|")[0].strip()
+            if "(" in txt:
+                tempo = txt.split("(")[-1].replace(")", "").strip()
+                musica_inicial += f" ({tempo})"
+        elif "Comentários finais" in txt:
+            musica_final = txt.split("|")[1].strip() if "|" in txt else txt.strip()
+            if "(" in txt:
+                tempo = txt.split("(")[-1].replace(")", "").strip()
+                musica_final = txt.split("|")[0].strip().split("e")[0].strip()
+                musica_final += f" ({tempo})"
+
+    # Cântico da Vida Cristã
+    secao_vida = soup.find("h2", string=lambda t: t and "NOSSA VIDA CRISTÃ" in t.upper())
+    if secao_vida:
+        h3_cantico = secao_vida.find_next("h3")
+        if h3_cantico and "Cântico" in h3_cantico.text:
+            musica_vida_crista = h3_cantico.get_text(strip=True).split("e")[0].strip()
 
     # Função para buscar itens com tempo
     def extrair_itens(inicio_tag):
@@ -49,7 +59,13 @@ def get_reuniao(ano, semana):
                     if tempo_p:
                         tempo = tempo_p.text.strip()
                 if tempo:
-                    titulo += f" ({tempo})"
+                    titulo += f" (({tempo}))"
+                # extra info (versículos ou referência)
+                extras = []
+                for p in next_div.find_all("p")[1:] if next_div else []:
+                    extras.append(p.get_text(strip=True))
+                if extras:
+                    titulo += " " + " ".join(extras)
                 itens.append(titulo)
         return itens
 
@@ -62,7 +78,6 @@ def get_reuniao(ano, semana):
     instrutores = extrair_itens(secao_instrutores) if secao_instrutores else []
 
     # Nossa Vida Cristã
-    secao_vida = soup.find("h2", string=lambda text: text and "NOSSA VIDA CRISTÃ" in text.upper())
     vida_crista = extrair_itens(secao_vida) if secao_vida else []
 
     return jsonify({
