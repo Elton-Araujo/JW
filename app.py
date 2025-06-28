@@ -11,7 +11,6 @@ def get_reuniao(ano, semana):
     response = requests.get(url)
     soup = BeautifulSoup(response.content, 'html.parser')
 
-    # Função para obter o texto de um seletor
     def get_text(selector):
         tag = soup.select_one(selector)
         return tag.get_text(strip=True) if tag else ""
@@ -19,7 +18,6 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Função para detectar cânticos
     def detectar_canticos_ordenados():
         tags = soup.find_all(string=re.compile(r"Cântico \d+"))
         vistos = set()
@@ -38,18 +36,13 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Função para extrair títulos e tempos
-    def extrair_titulo_com_tempo(texto):
-        # Encontra o tempo associado ao texto
-        tempo = ""
-        match = re.search(r"\(\s*(\d+)\s*min\s*\)", texto)
-        if match:
-            tempo = match.group(0).strip()
-            # Remove o tempo do texto
-            texto = re.sub(r"\s*\(\s*\d+\s*min\s*\)", "", texto).strip()
-        return f"{texto} {tempo}".strip()
+    def extrair_titulo_com_tempo(titulo, tempo_texto):
+        match_tempo = re.search(r"\(\s*(\d+)\s*min\s*\)", tempo_texto)
+        if match_tempo:
+            tempo = match_tempo.group(0).strip()
+            return f"{titulo} {tempo}"
+        return titulo.strip()
 
-    # Função para extrair itens por faixa
     def extract_itens_by_range(start, end):
         result = []
         h3_tags = soup.find_all("h3")
@@ -58,7 +51,7 @@ def get_reuniao(ano, semana):
             if start <= count <= end:
                 p = h3.find_next_sibling("p")
                 tempo_texto = p.get_text(strip=True) if p else ""
-                item = extrair_titulo_com_tempo(f"{texto} ({tempo_texto})")
+                item = extrair_titulo_com_tempo(texto, tempo_texto)
                 result.append(item)
         return result
 
