@@ -9,14 +9,24 @@ app = Flask(__name__)
 def home():
     return jsonify({"message": "API JW funcionando corretamente."})
 
-@app.route('/reuniao')
-def reuniao():
-    url = "https://wol.jw.org/pt/wol/meetings/r5/lp-t/2025/27"
+@app.route('/reuniao/<int:ano>/<int:semana>')
+def reuniao(ano, semana):
+    url = f"https://wol.jw.org/pt/wol/meetings/r5/lp-t/{ano}/{semana}"
     response = requests.get(url)
+
+    if response.status_code != 200:
+        return jsonify({"error": "Página não encontrada", "status": response.status_code}), 404
+
     soup = BeautifulSoup(response.content, "html.parser")
 
-    semana = soup.select_one("h1.themeScrp").text.strip()
-    capitulo = soup.select_one("h2.themeScrp").text.strip()
+    semana_texto = soup.select_one("h1.themeScrp")
+    capitulo_texto = soup.select_one("h2.themeScrp")
+    
+    if not semana_texto or not capitulo_texto:
+        return jsonify({"error": "Conteúdo da reunião não encontrado"}), 404
+
+    semana = semana_texto.text.strip()
+    capitulo = capitulo_texto.text.strip()
 
     def extrair_bloco(nome_secao):
         secao = soup.find("h3", string=re.compile(nome_secao, re.IGNORECASE))
