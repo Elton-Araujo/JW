@@ -18,7 +18,7 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Detectar cânticos na ordem que aparecem
+    # Detectar cânticos em ordem de aparição
     def detectar_canticos_ordenados():
         tags = soup.find_all(string=re.compile(r"Cântico \d+"))
         vistos = set()
@@ -37,7 +37,17 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair itens com número e tempo
+    # Função para extrair apenas até (x min)
+    def extrair_titulo_com_tempo(texto, tempo):
+        match_tempo = re.search(r"\(\s*\d+\s*min\s*\)", tempo or "")
+        if match_tempo:
+            tempo_limpo = match_tempo.group(0).strip()
+            titulo_limpo = re.sub(r"\(.*", "", texto).strip()
+            return f"{titulo_limpo} {tempo_limpo}"
+        else:
+            return re.sub(r"\(.*", "", texto).strip()
+
+    # Extrair itens numerados com título e tempo até "(x min)"
     def extract_itens_by_range(start, end):
         result = []
         count = 0
@@ -45,19 +55,10 @@ def get_reuniao(ano, semana):
         for h3 in h3_tags:
             texto = h3.get_text(" ", strip=True)
             if re.match(rf"^{start + count}\.", texto):
-                tempo = ""
                 p = h3.find_next_sibling("p")
-                if p:
-                    match = re.search(r"\(?\s*\d+\s*min\s*\)?", p.text)
-                    if match:
-                        tempo = match.group(0).strip("() ").replace("minutos", "min")
-
-                # Remover qualquer parêntese e conteúdo após o tempo
-                titulo = re.sub(r"\(.*", "", texto).strip()
-                if tempo:
-                    result.append(f"{titulo} ({tempo})")
-                else:
-                    result.append(titulo)
+                tempo_texto = p.text if p else ""
+                item = extrair_titulo_com_tempo(texto, tempo_texto)
+                result.append(item)
                 count += 1
             if count > (end - start):
                 break
