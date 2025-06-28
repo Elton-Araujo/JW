@@ -57,7 +57,7 @@ def get_reuniao(ano, semana):
                 item = extrair_titulo_com_tempo(texto, tempo_texto)
                 result.append(item)
                 count += 1
-            if count > (end - start):
+            if count >= (end - start + 1):
                 break
         return result
 
