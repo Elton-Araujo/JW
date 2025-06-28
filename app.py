@@ -1,6 +1,7 @@
 from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
+import re
 
 app = Flask(__name__)
 
@@ -17,23 +18,26 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Música inicial
-    musica_inicial_tag = soup.find("h3", string=lambda x: x and "Comentários iniciais" in x)
-    musica_inicial = "Cântico 131" if musica_inicial_tag else ""
+    # Detectar todos os cânticos da reunião
+    def detectar_canticos():
+        h3_tags = soup.find_all("h3", string=re.compile(r"Cântico \d+"))
+        encontrados = []
+        for tag in h3_tags:
+            match = re.search(r"Cântico \d+", tag.text)
+            if match:
+                encontrados.append(match.group(0))
+        return encontrados
 
-    # Música final
-    musica_final_tag = soup.find("h3", string=lambda x: x and "Comentários finais" in x)
-    musica_final = "Cântico 150" if musica_final_tag else ""
+    canticos = detectar_canticos()
+    musica_inicial = canticos[0] if len(canticos) > 0 else ""
+    musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
+    musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Música depois dos instrutores
-    musica_vida_crista_tag = soup.find("h3", string=lambda x: x and "Cântico 78" in x)
-    musica_vida_crista = "Cântico 78" if musica_vida_crista_tag else ""
-
-    # Extrair itens numerados com tempo (ex: 1. Tema (10 min))
+    # Extrair os itens da reunião numerados
     def extract_itens_by_range(start, end):
         result = []
         for i in range(start, end + 1):
-            h3 = soup.find("h3", string=lambda x: x and x.strip().startswith(f"{i}."))
+            h3 = soup.find("h3", string=lambda x: x and f"{i}." in x)
             if not h3:
                 continue
             texto = h3.get_text(" ", strip=True)
@@ -41,8 +45,9 @@ def get_reuniao(ano, semana):
             tempo = ""
             if tempo_tag and "min" in tempo_tag.text:
                 tempo = tempo_tag.text.strip().replace("(", "").replace(")", "")
-            nome = texto.split("(")[0].strip()
-            result.append(f"{i}. {nome} ({tempo})" if tempo else f"{i}. {nome}")
+            nome = texto.strip()
+            item = f"{nome} ({tempo})" if tempo and tempo not in nome else nome
+            result.append(item)
         return result
 
     tesouros = extract_itens_by_range(1, 3)
