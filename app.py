@@ -33,21 +33,25 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair os itens da reunião numerados
+    # Extrair os itens numerados
     def extract_itens_by_range(start, end):
         result = []
-        for i in range(start, end + 1):
-            h3 = soup.find("h3", string=lambda x: x and f"{i}." in x)
-            if not h3:
-                continue
+        count = 0
+        h3_tags = soup.find_all("h3")
+        for h3 in h3_tags:
             texto = h3.get_text(" ", strip=True)
-            tempo_tag = h3.find_next("p")
-            tempo = ""
-            if tempo_tag and "min" in tempo_tag.text:
-                tempo = tempo_tag.text.strip().replace("(", "").replace(")", "")
-            nome = texto.strip()
-            item = f"{nome} ({tempo})" if tempo and tempo not in nome else nome
-            result.append(item)
+            match = re.match(rf"^({start + count})\.", texto)
+            if match:
+                tempo_tag = h3.find_next("p")
+                tempo = ""
+                if tempo_tag and "min" in tempo_tag.text:
+                    tempo = tempo_tag.text.strip().replace("(", "").replace(")", "")
+                nome = texto.strip()
+                item = f"{nome} ({tempo})" if tempo and tempo not in nome else nome
+                result.append(item)
+                count += 1
+            if count > (end - start):
+                break
         return result
 
     tesouros = extract_itens_by_range(1, 3)
