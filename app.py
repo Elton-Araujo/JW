@@ -37,8 +37,8 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair itens numerados de start até end
-    # Com limpeza para que o texto entre parênteses pare após (X min)
+    # Extrair itens numerados com tempo (ex: "4. Título (4 min)")
+    # Removendo qualquer conteúdo após o tempo
     def extract_itens_by_range(start, end):
         result = []
         count = 0
@@ -47,14 +47,10 @@ def get_reuniao(ano, semana):
             texto = h3.get_text(" ", strip=True)
             match = re.match(rf"^({start + count})\.", texto)
             if match:
-                # Extrair só até "(X min)"
                 tempo_match = re.search(r"\(\d+ min\)", texto)
-                if tempo_match:
-                    tempo_str = tempo_match.group(0)  # ex: (4 min)
-                    titulo = texto.split('(')[0].strip()
-                    item = f"{titulo} {tempo_str}"
-                else:
-                    item = texto.strip()
+                tempo_str = tempo_match.group(0) if tempo_match else ""
+                titulo = re.split(r"\(\d+ min\)", texto)[0].strip()
+                item = f"{titulo} {tempo_str}".strip()
                 result.append(item)
                 count += 1
             if count > (end - start):
