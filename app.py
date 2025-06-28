@@ -1,83 +1,65 @@
 from flask import Flask, jsonify
-from bs4 import BeautifulSoup
 import requests
-import re
+from bs4 import BeautifulSoup
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    return jsonify({"message": "API JW funcionando corretamente."})
-
-@app.route('/reuniao/<int:ano>/<int:semana>')
-def reuniao(ano, semana):
-    url = f"https://wol.jw.org/pt/wol/meetings/r5/lp-t/{ano}/{semana}"
+@app.route('/reuniao/<int:ano>/<int:semana>', methods=['GET'])
+def get_reuniao(ano, semana):
+    url = f'https://wol.jw.org/pt/wol/meetings/r5/lp-t/{ano}/{semana}'
     response = requests.get(url)
+    soup = BeautifulSoup(response.content, 'html.parser')
 
-    if response.status_code != 200:
-        return jsonify({"error": "Página não encontrada", "status": response.status_code}), 404
+    def get_text(selector):
+        tag = soup.select_one(selector)
+        return tag.get_text(strip=True) if tag else ""
 
-    soup = BeautifulSoup(response.content, "html.parser")
+    semana = get_text("h1")
+    capitulo = get_text("h2")
 
-    semana_texto = soup.select_one("h1.themeScrp")
-    capitulo_texto = soup.select_one("h2.themeScrp")
-    
-    if not semana_texto or not capitulo_texto:
-        return jsonify({"error": "Conteúdo da reunião não encontrado"}), 404
+    # Música inicial
+    musica_inicial_tag = soup.find("h3", string=lambda x: x and "Comentários iniciais" in x)
+    musica_inicial = "Cântico 131" if musica_inicial_tag else ""
 
-    semana = semana_texto.text.strip()
-    capitulo = capitulo_texto.text.strip()
+    # Música final
+    musica_final_tag = soup.find("h3", string=lambda x: x and "Comentários finais" in x)
+    musica_final = "Cântico 150" if musica_final_tag else ""
 
-    def extrair_bloco(nome_secao):
-        secao = soup.find("h3", string=re.compile(nome_secao, re.IGNORECASE))
-        if not secao:
-            return []
-        ul = secao.find_next_sibling("ul")
-        if not ul:
-            return []
-        itens = ul.find_all("li")
-        resultados = []
-        for i, li in enumerate(itens):
-            texto = li.get_text(" ", strip=True)
-            tempo = re.search(r"\((\d+ min)\)", texto)
-            tempo_str = f" ({tempo.group(1)})" if tempo else ""
-            titulo = re.sub(r"\(.*?\)", "", texto).strip()
-            titulo = re.sub(r"\s+", " ", titulo)
-            resultados.append(f"{i + 1}. {titulo}{tempo_str}")
-        return resultados
+    # Música depois dos instrutores
+    musica_vida_crista_tag = soup.find("h3", string=lambda x: x and "Cântico 78" in x)
+    musica_vida_crista = "Cântico 78" if musica_vida_crista_tag else ""
 
-    def extrair_instrutores():
-        secao = soup.find("h3", string=re.compile("Sejamos Melhores Instrutores", re.IGNORECASE))
-        if not secao:
-            return []
-        itens = secao.find_all_next("li", limit=3)
-        resultados = []
-        for i, li in enumerate(itens):
-            texto = li.get_text(" ", strip=True)
-            tempo = re.search(r"\((\d+ min)\)", texto)
-            tempo_str = f" ({tempo.group(1)})" if tempo else ""
-            titulo = re.sub(r"\(.*?\)", "", texto).strip()
-            titulo = re.sub(r"\s+", " ", titulo)
-            resultados.append(f"{i + 4}. {titulo}{tempo_str}")
-        return resultados
+    # Extrair itens numerados com tempo (ex: 1. Tema (10 min))
+    def extract_itens_by_range(start, end):
+        result = []
+        for i in range(start, end + 1):
+            h3 = soup.find("h3", string=lambda x: x and x.strip().startswith(f"{i}."))
+            if not h3:
+                continue
+            texto = h3.get_text(" ", strip=True)
+            tempo_tag = h3.find_next("p")
+            tempo = ""
+            if tempo_tag and "min" in tempo_tag.text:
+                tempo = tempo_tag.text.strip().replace("(", "").replace(")", "")
+            nome = texto.split("(")[0].strip()
+            result.append(f"{i}. {nome} ({tempo})" if tempo else f"{i}. {nome}")
+        return result
 
-    def extrair_musica(numero):
-        tag = soup.find("h3", string=re.compile(f"Cântico {numero}"))
-        return f"Cântico {numero}" if tag else ""
+    tesouros = extract_itens_by_range(1, 3)
+    instrutores = extract_itens_by_range(4, 6)
+    vida_crista = extract_itens_by_range(7, 9)
 
-    dados = {
+    return jsonify({
         "semana": semana,
         "capitulo": capitulo,
-        "musica_inicial": extrair_musica(131),
-        "tesouros": extrair_bloco("Tesouros da Palavra de Deus"),
-        "instrutores": extrair_instrutores(),
-        "musica_vida_crista": extrair_musica(78),
-        "vida_crista": extrair_bloco("Nossa Vida Cristã"),
-        "musica_final": extrair_musica(150),
+        "musica_inicial": musica_inicial,
+        "tesouros": tesouros,
+        "instrutores": instrutores,
+        "musica_vida_crista": musica_vida_crista,
+        "vida_crista": vida_crista,
+        "musica_final": musica_final,
         "url_origem": url
-    }
-
-    return jsonify(dados)
+    })
 
 if __name__ == '__main__':
-    app.run()
+    app.run(debug=True)
