@@ -18,7 +18,6 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Detectar todos os cânticos visíveis, em ordem real de aparição
     def detectar_canticos_ordenados():
         tags = soup.find_all(string=re.compile(r"Cântico \d+"))
         vistos = set()
@@ -37,21 +36,33 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair itens numerados com título e tempo entre parênteses (ex: "(4 min)")
-    # Ignora qualquer texto depois do tempo
+    # Função que extrai h3s numerados + tempos associados no p seguinte
     def extract_itens_by_range(start, end):
         result = []
         count = 0
         h3_tags = soup.find_all("h3")
         for h3 in h3_tags:
             texto = h3.get_text(" ", strip=True)
-            match = re.match(rf"^({start + count})\.", texto)
-            if match:
-                # Captura o tempo com ou sem espaços, e com "min" maiúsculo ou minúsculo
-                tempo_match = re.search(r"\(\s*\d+\s*[mM]in\s*\)", texto)
-                tempo_str = tempo_match.group(0).strip() if tempo_match else ""
-                titulo = re.split(r"\(\s*\d+\s*[mM]in\s*\)", texto)[0].strip()
-                item = f"{titulo} {tempo_str}".strip()
+            if re.match(rf"^{start + count}\.", texto):
+                # Extrai título até o número
+                titulo = texto.strip()
+                # Busca tempo no parágrafo seguinte se não estiver no h3
+                tempo = ""
+                p = h3.find_next_sibling("p")
+                if p:
+                    tempo_match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", p.text)
+                    if tempo_match:
+                        tempo = tempo_match.group(0).strip("() ")
+                else:
+                    # backup se o tempo estiver no próprio h3
+                    tempo_match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", texto)
+                    if tempo_match:
+                        tempo = tempo_match.group(0).strip("() ")
+
+                if tempo:
+                    item = f"{titulo} ({tempo})"
+                else:
+                    item = titulo
                 result.append(item)
                 count += 1
             if count > (end - start):
