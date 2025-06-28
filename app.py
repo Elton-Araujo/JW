@@ -36,7 +36,7 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Função que extrai h3s numerados + tempos associados no p seguinte
+    # Função principal de extração com tempo apenas (ex: "4. Iniciando conversas (4 min)")
     def extract_itens_by_range(start, end):
         result = []
         count = 0
@@ -44,25 +44,17 @@ def get_reuniao(ano, semana):
         for h3 in h3_tags:
             texto = h3.get_text(" ", strip=True)
             if re.match(rf"^{start + count}\.", texto):
-                # Extrai título até o número
-                titulo = texto.strip()
-                # Busca tempo no parágrafo seguinte se não estiver no h3
+                numero_titulo = texto.strip()
                 tempo = ""
                 p = h3.find_next_sibling("p")
                 if p:
-                    tempo_match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", p.text)
-                    if tempo_match:
-                        tempo = tempo_match.group(0).strip("() ")
-                else:
-                    # backup se o tempo estiver no próprio h3
-                    tempo_match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", texto)
-                    if tempo_match:
-                        tempo = tempo_match.group(0).strip("() ")
-
+                    match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", p.text)
+                    if match:
+                        tempo = match.group(0).strip("() ")
                 if tempo:
-                    item = f"{titulo} ({tempo})"
+                    item = f"{numero_titulo} ({tempo})"
                 else:
-                    item = titulo
+                    item = numero_titulo
                 result.append(item)
                 count += 1
             if count > (end - start):
