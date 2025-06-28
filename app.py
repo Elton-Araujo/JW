@@ -18,7 +18,6 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Detectar cânticos em ordem de aparição
     def detectar_canticos_ordenados():
         tags = soup.find_all(string=re.compile(r"Cântico \d+"))
         vistos = set()
@@ -37,17 +36,15 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Função para extrair apenas até (x min)
-    def extrair_titulo_com_tempo(texto, tempo):
-        match_tempo = re.search(r"\(\s*\d+\s*min\s*\)", tempo or "")
+    def extrair_titulo_com_tempo(texto, tempo_texto):
+        match_tempo = re.search(r"\(\s*\d+\s*min\s*\)", tempo_texto)
         if match_tempo:
             tempo_limpo = match_tempo.group(0).strip()
             titulo_limpo = re.sub(r"\(.*", "", texto).strip()
             return f"{titulo_limpo} {tempo_limpo}"
         else:
-            return re.sub(r"\(.*", "", texto).strip()
+            return texto.strip()
 
-    # Extrair itens numerados com título e tempo até "(x min)"
     def extract_itens_by_range(start, end):
         result = []
         count = 0
