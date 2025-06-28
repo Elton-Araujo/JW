@@ -18,22 +18,22 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Detectar todos os cânticos da reunião
-    def detectar_canticos():
+    # Detectar todos os cânticos na ordem em que aparecem
+    def detectar_canticos_ordenados():
         h3_tags = soup.find_all("h3", string=re.compile(r"Cântico \d+"))
-        encontrados = []
-        for tag in h3_tags:
-            match = re.search(r"Cântico \d+", tag.text)
+        canticos_encontrados = []
+        for h3 in h3_tags:
+            match = re.search(r"Cântico \d+", h3.get_text())
             if match:
-                encontrados.append(match.group(0))
-        return encontrados
+                canticos_encontrados.append(match.group(0))
+        return canticos_encontrados
 
-    canticos = detectar_canticos()
+    canticos = detectar_canticos_ordenados()
     musica_inicial = canticos[0] if len(canticos) > 0 else ""
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair os itens numerados
+    # Extrair os itens da reunião numerados
     def extract_itens_by_range(start, end):
         result = []
         count = 0
