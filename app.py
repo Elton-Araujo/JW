@@ -18,7 +18,7 @@ def get_reuniao(ano, semana):
     semana = get_text("h1")
     capitulo = get_text("h2")
 
-    # Detectar cânticos únicos em ordem
+    # Detectar cânticos na ordem que aparecem
     def detectar_canticos_ordenados():
         tags = soup.find_all(string=re.compile(r"Cântico \d+"))
         vistos = set()
@@ -37,7 +37,7 @@ def get_reuniao(ano, semana):
     musica_vida_crista = canticos[1] if len(canticos) > 1 else ""
     musica_final = canticos[2] if len(canticos) > 2 else ""
 
-    # Extrair itens numerados com tempo
+    # Extrair itens com número e tempo
     def extract_itens_by_range(start, end):
         result = []
         count = 0
@@ -45,20 +45,19 @@ def get_reuniao(ano, semana):
         for h3 in h3_tags:
             texto = h3.get_text(" ", strip=True)
             if re.match(rf"^{start + count}\.", texto):
-                numero_titulo = texto.strip()
                 tempo = ""
                 p = h3.find_next_sibling("p")
                 if p:
-                    match = re.search(r"\(?\s*\d+\s*[mM]in\s*\)?", p.text)
+                    match = re.search(r"\(?\s*\d+\s*min\s*\)?", p.text)
                     if match:
                         tempo = match.group(0).strip("() ").replace("minutos", "min")
-                # Adiciona o tempo entre parênteses, e remove qualquer conteúdo depois disso
+
+                # Remover qualquer parêntese e conteúdo após o tempo
+                titulo = re.sub(r"\(.*", "", texto).strip()
                 if tempo:
-                    item = re.sub(r"\s*\(.*?\).*", "", numero_titulo).strip()
-                    result.append(f"{item} ({tempo})")
+                    result.append(f"{titulo} ({tempo})")
                 else:
-                    item = re.sub(r"\s*\(.*?\).*", "", numero_titulo).strip()
-                    result.append(item)
+                    result.append(titulo)
                 count += 1
             if count > (end - start):
                 break
